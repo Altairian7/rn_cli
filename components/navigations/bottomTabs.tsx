@@ -24,6 +24,7 @@ export default function BottomTabs() {
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }: { route: RouteProp<RootTabParamList, keyof RootTabParamList> }) => ({
+          headerShown: false,
           tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
             let iconName = '';
 

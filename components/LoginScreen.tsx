@@ -36,7 +36,7 @@ export function LoginScreen() {
           <Text style={styles.label}>Email</Text>
           <TextInput
             placeholder="name@example.com"
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor="#9ca3af"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -50,7 +50,7 @@ export function LoginScreen() {
           <Text style={styles.label}>Password</Text>
           <TextInput
             placeholder="••••••••"
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor="#9ca3af"
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -58,7 +58,7 @@ export function LoginScreen() {
           />
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={onLogin} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.button} onPress={onLogin} activeOpacity={0.85}>
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 
@@ -71,37 +71,42 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, justifyContent: 'center', backgroundColor: '#0b1324' },
+  container: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6', // light gray background
+  },
   card: {
     borderRadius: 14,
     padding: 20,
-    backgroundColor: '#111a33',
+    backgroundColor: '#ffffff',
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
-  title: { fontSize: 24, fontWeight: '600', color: '#e6e9ef' },
-  subtitle: { marginTop: 4, color: '#aab2c8' },
+  title: { fontSize: 24, fontWeight: '600', color: '#111827' },
+  subtitle: { marginTop: 4, color: '#6b7280' },
   field: { marginTop: 16 },
-  label: { color: '#c7cede', marginBottom: 6 },
+  label: { color: '#374151', marginBottom: 6, fontWeight: '500' },
   input: {
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    backgroundColor: '#0e1730',
-    color: '#e6e9ef',
+    backgroundColor: '#f9fafb',
+    color: '#111827',
     borderWidth: 1,
-    borderColor: '#263357',
+    borderColor: '#d1d5db',
   },
   button: {
     marginTop: 18,
     borderRadius: 10,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#2563eb', // blue-600
     alignItems: 'center',
     paddingVertical: 12,
   },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  footerText: { marginTop: 10, textAlign: 'center', color: '#93a0bd' },
+  buttonText: { color: '#ffffff', fontWeight: '600', fontSize: 16 },
+  footerText: { marginTop: 10, textAlign: 'center', color: '#6b7280' },
 });

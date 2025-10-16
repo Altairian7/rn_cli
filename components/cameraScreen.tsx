@@ -1,101 +1,164 @@
 // components/CameraScreen.tsx
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Button,
-  Image,
-  StyleSheet,
-  Platform,
-  PermissionsAndroid,
-  Alert,
-  Text,
-} from 'react-native';
-import { launchCamera, type CameraOptions, type ImagePickerResponse } from 'react-native-image-picker';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, Image, Alert } from 'react-native';
+import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export default function CameraScreen() {
-  const [uri, setUri] = useState<string | undefined>(undefined);
-  // State to hold the permission status
-  const [hasPermission, setHasPermission] = useState(false);
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
+  const camera = useRef<Camera>(null);
+  
+  const [isActive, setIsActive] = useState(true);
+  const [photo, setPhoto] = useState<PhotoFile | null>(null);
 
-  // Ask for permission when the component loads
   useEffect(() => {
-    async function requestPermissions() {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: "Camera Permission",
-            message: "App needs access to your camera to take photos.",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK"
-          }
-        );
-        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
-      } else {
-        // For iOS, permission is handled by the system automatically on first use.
-        // We can assume true and let the OS handle the prompt.
-        setHasPermission(true);
-      }
-    }
-
-    requestPermissions();
-  }, []);
-
-  async function onCaptureAndUpload() {
-    // Check the permission state before proceeding
     if (!hasPermission) {
-      Alert.alert('Permission required', 'Camera permission is needed to take a photo.');
-      return;
+      requestPermission();
     }
+  }, [hasPermission, requestPermission]);
 
-    const options: CameraOptions = { mediaType: 'photo', quality: 0.9, saveToPhotos: true };
-    try {
-      const result: ImagePickerResponse = await launchCamera(options);
-      if (result.didCancel) return;
-      const photo = result.assets?.[0];
-      if (!photo?.uri) {
-        Alert.alert('No image captured');
-        return;
+  const onCapturePhoto = async () => {
+    if (camera.current) {
+      try {
+        // Corrected: Removed unsupported options
+        const capturedPhoto = await camera.current.takePhoto({
+          flash: 'off',
+        });
+        setPhoto(capturedPhoto);
+        setIsActive(false); // Deactivate camera to show preview
+      } catch (e) {
+        console.error('Failed to take photo:', e);
+        Alert.alert('Error', 'Failed to take photo.');
       }
-      setUri(photo.uri);
-      await uploadPhoto(photo.uri);
-      Alert.alert('Uploaded', 'Photo uploaded successfully.');
-    } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'Unknown error');
     }
+  };
+  
+  const onRetakePhoto = () => {
+    setPhoto(null);
+    setIsActive(true); // Reactivate camera
+  };
+
+  const onUploadPhoto = async () => {
+    if (!photo) return;
+
+    const form = new FormData();
+    form.append('file', {
+      uri: `file://${photo.path}`,
+      name: 'photo.jpg',
+      type: 'image/jpeg',
+    });
+
+    try {
+      const resp = await fetch('https://example.com/upload', {
+        method: 'POST',
+        body: form,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+      Alert.alert('Uploaded', 'Photo uploaded successfully!');
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Upload Failed', 'Failed to upload photo.');
+    }
+  };
+
+  if (!hasPermission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.permissionText}>Camera permission is required.</Text>
+        <TouchableOpacity style={styles.button} onPress={requestPermission}>
+          <Text style={styles.buttonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
-  async function uploadPhoto(fileUri: string) {
-    const form = new FormData();
-    form.append('file', { uri: fileUri, name: 'photo.jpg', type: 'image/jpeg' } as any);
-    const resp = await fetch('https://example.com/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'multipart/form-data' },
-      body: form,
-    });
-    if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+  if (device == null) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.permissionText}>No camera device found.</Text>
+      </View>
+    );
+  }
+
+  if (photo) {
+    return (
+      <View style={styles.container}>
+        <Image source={{ uri: `file://${photo.path}` }} style={StyleSheet.absoluteFill} />
+        <View style={styles.previewControls}>
+          <TouchableOpacity style={styles.controlButton} onPress={onRetakePhoto}>
+            <Ionicons name="close-circle" size={50} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton} onPress={onUploadPhoto}>
+            <Ionicons name="checkmark-circle" size={50} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      <Button title="Capture & Upload Photo" onPress={onCaptureAndUpload} />
-      {uri ? (
-        <View style={styles.previewWrap}>
-          <Text style={styles.label}>Preview</Text>
-          <Image source={{ uri }} style={styles.preview} />
-        </View>
-      ) : (
-        <Text style={styles.helper}>Tap the button to open the camera.</Text>
-      )}
+      <Camera
+        ref={camera}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={isActive}
+        photo={true}
+        // Use this prop on the Camera component for quality/speed trade-off
+        photoQualityBalance="speed" 
+      />
+      <View style={styles.captureButtonContainer}>
+        <TouchableOpacity style={styles.captureButton} onPress={onCapturePhoto} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, gap: 16, padding: 16, alignItems: 'center' },
-  previewWrap: { marginTop: 12, alignItems: 'center' },
-  label: { color: '#666', marginBottom: 6 },
-  preview: { width: 260, height: 260, borderRadius: 8, backgroundColor: '#eee' },
-  helper: { marginTop: 8, color: '#888' },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'black',
+  },
+  permissionText: {
+    color: 'white',
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  button: {
+    backgroundColor: '#1E90FF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  captureButtonContainer: {
+    position: 'absolute',
+    bottom: 50,
+    alignSelf: 'center',
+  },
+  captureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'white',
+    borderWidth: 5,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  previewControls: {
+    position: 'absolute',
+    bottom: 50,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  controlButton: {
+    padding: 10,
+  },
 });
