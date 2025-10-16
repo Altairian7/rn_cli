@@ -8,11 +8,13 @@ import { LoginScreen } from '../LoginScreen';
 import CameraScreen from '../cameraScreen';
 import SensorPermissions from '../SensorPermissions';
 import SensorDataDisplay from '../SensorDataDisplay'; // Import the new screen
+import ImgPickerScreen from '../ImgPickerScreen';
 
 // Define the parameters for each tab
 type RootTabParamList = {
   Login: undefined;
   Camera: undefined;
+  Image: undefined;
   Permissions: undefined;
   Data: undefined; // Add the new tab
 };
@@ -32,6 +34,8 @@ export default function BottomTabs() {
               iconName = focused ? 'home' : 'home-outline';
             } else if (route.name === 'Camera') {
               iconName = focused ? 'camera' : 'camera-outline';
+            } else if (route.name === 'Image') {
+              iconName = focused ? 'image' : 'image-outline'
             } else if (route.name === 'Permissions') {
               iconName = focused ? 'shield-checkmark' : 'shield-checkmark-outline';
             } else if (route.name === 'Data') { // Icon for the new tab
@@ -46,6 +50,7 @@ export default function BottomTabs() {
       >
         <Tab.Screen name="Login" component={LoginScreen} />
         <Tab.Screen name="Camera" component={CameraScreen} />
+        <Tab.Screen name="Image" component={ImgPickerScreen} />
         <Tab.Screen name="Permissions" component={SensorPermissions} /> 
         <Tab.Screen name="Data" component={SensorDataDisplay} />
       </Tab.Navigator>

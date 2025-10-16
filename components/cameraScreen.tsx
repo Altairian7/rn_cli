@@ -9,7 +9,7 @@ export default function CameraScreen() {
   const device = useCameraDevice('back');
   const camera = useRef<Camera>(null);
   
-  const [isActive, setIsActive] = useState(true);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photo, setPhoto] = useState<PhotoFile | null>(null);
 
   useEffect(() => {
@@ -21,12 +21,9 @@ export default function CameraScreen() {
   const onCapturePhoto = async () => {
     if (camera.current) {
       try {
-        // Corrected: Removed unsupported options
-        const capturedPhoto = await camera.current.takePhoto({
-          flash: 'off',
-        });
+        const capturedPhoto = await camera.current.takePhoto({ flash: 'off' });
         setPhoto(capturedPhoto);
-        setIsActive(false); // Deactivate camera to show preview
+        setIsCameraOpen(false); // Close camera to show preview
       } catch (e) {
         console.error('Failed to take photo:', e);
         Alert.alert('Error', 'Failed to take photo.');
@@ -36,7 +33,7 @@ export default function CameraScreen() {
   
   const onRetakePhoto = () => {
     setPhoto(null);
-    setIsActive(true); // Reactivate camera
+    setIsCameraOpen(true); // Re-open camera
   };
 
   const onUploadPhoto = async () => {
@@ -57,16 +54,20 @@ export default function CameraScreen() {
       });
       if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
       Alert.alert('Uploaded', 'Photo uploaded successfully!');
+      setPhoto(null); // Reset after upload
     } catch (e) {
       console.error(e);
       Alert.alert('Upload Failed', 'Failed to upload photo.');
     }
   };
 
+  // --- Render logic based on state ---
+
+  // 1. Handle Permissions
   if (!hasPermission) {
     return (
       <View style={styles.container}>
-        <Text style={styles.permissionText}>Camera permission is required.</Text>
+        <Text style={styles.messageText}>Camera permission is required.</Text>
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
@@ -74,44 +75,63 @@ export default function CameraScreen() {
     );
   }
 
+  // 2. Handle no camera device
   if (device == null) {
     return (
       <View style={styles.container}>
-        <Text style={styles.permissionText}>No camera device found.</Text>
+        <Text style={styles.messageText}>No camera device found.</Text>
       </View>
     );
   }
 
+  // 3. Show Photo Preview
   if (photo) {
     return (
       <View style={styles.container}>
         <Image source={{ uri: `file://${photo.path}` }} style={StyleSheet.absoluteFill} />
         <View style={styles.previewControls}>
           <TouchableOpacity style={styles.controlButton} onPress={onRetakePhoto}>
-            <Ionicons name="close-circle" size={50} color="white" />
+            <Ionicons name="close-circle" size={60} color="white" />
+            <Text style={styles.controlText}>Retake</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.controlButton} onPress={onUploadPhoto}>
-            <Ionicons name="checkmark-circle" size={50} color="white" />
+            <Ionicons name="checkmark-circle" size={60} color="white" />
+            <Text style={styles.controlText}>Upload</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
+  // 4. Show Live Camera View
+  if (isCameraOpen) {
+    return (
+      <View style={styles.container}>
+        <Camera
+          ref={camera}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={true}
+          photo={true}
+          photoQualityBalance="speed"
+        />
+        <View style={styles.captureButtonContainer}>
+          <TouchableOpacity style={styles.captureButton} onPress={onCapturePhoto} />
+        </View>
+        <TouchableOpacity style={styles.closeButton} onPress={() => setIsCameraOpen(false)}>
+          <Ionicons name="close" size={35} color="white" />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // 5. Show Initial "Open Camera" Button
   return (
     <View style={styles.container}>
-      <Camera
-        ref={camera}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={isActive}
-        photo={true}
-        // Use this prop on the Camera component for quality/speed trade-off
-        photoQualityBalance="speed" 
-      />
-      <View style={styles.captureButtonContainer}>
-        <TouchableOpacity style={styles.captureButton} onPress={onCapturePhoto} />
-      </View>
+      <TouchableOpacity style={styles.button} onPress={() => setIsCameraOpen(true)}>
+        <Ionicons name="camera-outline" size={24} color="white" style={{ marginRight: 10 }}/>
+        <Text style={styles.buttonText}>Open Camera</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -121,22 +141,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'black',
+    backgroundColor: '#1c1c1e',
   },
-  permissionText: {
+  messageText: {
     color: 'white',
     fontSize: 18,
     marginBottom: 20,
+    textAlign: 'center'
   },
   button: {
-    backgroundColor: '#1E90FF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
   },
   captureButtonContainer: {
     position: 'absolute',
@@ -144,12 +168,20 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   captureButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 75,
+    height: 75,
+    borderRadius: 40,
     backgroundColor: 'white',
     borderWidth: 5,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'rgba(0,0,0,0.2)',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    left: 30,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 5,
   },
   previewControls: {
     position: 'absolute',
@@ -159,6 +191,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   controlButton: {
-    padding: 10,
+    alignItems: 'center',
+  },
+  controlText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 5,
   },
 });
