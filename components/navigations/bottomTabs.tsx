@@ -7,8 +7,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { LoginScreen } from '../LoginScreen';
 import CameraScreen from '../cameraScreen';
 import SensorPermissions from '../SensorPermissions';
-import SensorDataDisplay from '../SensorDataDisplay'; // Import the new screen
+import SensorDataDisplay from '../SensorDataDisplay';
 import ImgPickerScreen from '../ImgPickerScreen';
+import GnssLoggerScreen from '../GnssLoggerScreen';
 
 // Define the parameters for each tab
 type RootTabParamList = {
@@ -16,7 +17,8 @@ type RootTabParamList = {
   Camera: undefined;
   Image: undefined;
   Permissions: undefined;
-  Data: undefined; // Add the new tab
+  Data: undefined;
+  GNSS: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -35,11 +37,13 @@ export default function BottomTabs() {
             } else if (route.name === 'Camera') {
               iconName = focused ? 'camera' : 'camera-outline';
             } else if (route.name === 'Image') {
-              iconName = focused ? 'image' : 'image-outline'
+              iconName = focused ? 'image' : 'image-outline';
             } else if (route.name === 'Permissions') {
               iconName = focused ? 'shield-checkmark' : 'shield-checkmark-outline';
-            } else if (route.name === 'Data') { // Icon for the new tab
+            } else if (route.name === 'Data') {
               iconName = focused ? 'analytics' : 'analytics-outline';
+            } else if (route.name === 'GNSS') {
+              iconName = focused ? 'navigate' : 'navigate-outline';
             }
 
             return <Ionicons name={iconName} size={size} color={color} />;
@@ -51,8 +55,9 @@ export default function BottomTabs() {
         <Tab.Screen name="Login" component={LoginScreen} />
         <Tab.Screen name="Camera" component={CameraScreen} />
         <Tab.Screen name="Image" component={ImgPickerScreen} />
-        <Tab.Screen name="Permissions" component={SensorPermissions} /> 
+        <Tab.Screen name="Permissions" component={SensorPermissions} />
         <Tab.Screen name="Data" component={SensorDataDisplay} />
+        <Tab.Screen name="GNSS" component={GnssLoggerScreen} options={{ tabBarLabel: 'GNSS' }} />
       </Tab.Navigator>
     </NavigationContainer>
   );

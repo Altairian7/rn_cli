@@ -1,4 +1,3 @@
-// components/SensorPermissions.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, Button, Alert, StyleSheet, Platform, ScrollView } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
@@ -6,6 +5,7 @@ import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native
 const permissionMap = {
   motion: Platform.OS === 'ios' ? PERMISSIONS.IOS.MOTION : PERMISSIONS.ANDROID.BODY_SENSORS,
   location: Platform.OS === 'ios' ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+  gnss: Platform.OS === 'ios' ? PERMISSIONS.IOS.LOCATION_ALWAYS : PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION,
   camera: Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA,
 };
 
@@ -15,10 +15,10 @@ export default function SensorPermissions() {
   const [statuses, setStatuses] = useState<Record<PermissionType, typeof RESULTS[keyof typeof RESULTS] | string>>({
     motion: 'unavailable',
     location: 'unavailable',
+    gnss: 'unavailable',
     camera: 'unavailable',
   });
 
-  // Function to check all permissions on load
   const checkAllPermissions = async () => {
     const newStatuses: any = {};
     for (const key in permissionMap) {
@@ -34,7 +34,6 @@ export default function SensorPermissions() {
     checkAllPermissions();
   }, []);
 
-  // Function to request a single permission
   const requestPermission = async (type: PermissionType) => {
     const permission = permissionMap[type];
     let result = await request(permission);
@@ -69,6 +68,11 @@ export default function SensorPermissions() {
       </View>
       
       <View style={styles.permissionRow}>
+        <Text style={styles.permissionText}>GNSS / Background Location</Text>
+        <Button title={`Status: ${statuses.gnss}`} onPress={() => requestPermission('gnss')} />
+      </View>
+      
+      <View style={styles.permissionRow}>
         <Text style={styles.permissionText}>Camera</Text>
         <Button title={`Status: ${statuses.camera}`} onPress={() => requestPermission('camera')} />
       </View>
@@ -81,22 +85,22 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'flex-start',
     padding: 20,
-    backgroundColor: '#f7f7f7', // Light background color
+    backgroundColor: '#f7f7f7',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333', // Darker text color for better contrast
+    color: '#333',
     textAlign: 'center',
     marginBottom: 24,
-    letterSpacing: 0.5, // Adding some spacing for a cleaner title
+    letterSpacing: 0.5,
   },
   text: {
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 30,
-    color: '#666', // Slightly darker gray for better readability
-    lineHeight: 24, // Improved readability with a bit of line height
+    color: '#666',
+    lineHeight: 24,
   },
   permissionRow: {
     flexDirection: 'row',
@@ -106,36 +110,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 12,
     borderRadius: 8,
-    backgroundColor: '#fff', // White background for each row for contrast
-    shadowColor: '#000', // Adding a shadow for depth
+    backgroundColor: '#fff',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3, // For Android shadow effect
+    elevation: 3,
   },
   permissionText: {
     fontSize: 18,
-    fontWeight: '600', // Slightly bold for better emphasis
-    color: '#444', // Slightly darker text color for better visibility
+    fontWeight: '600',
+    color: '#444',
   },
   button: {
-    backgroundColor: '#007bff', // A rich blue color for the buttons
+    backgroundColor: '#007bff',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#007bff', // Same color for border for consistency
+    borderColor: '#007bff',
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff', // White text for buttons
+    color: '#fff',
     textAlign: 'center',
   },
   footer: {
     marginTop: 20,
     textAlign: 'center',
-    color: '#999', // Light gray footer text
+    color: '#999',
     fontSize: 14,
   },
 });
