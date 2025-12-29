@@ -4,7 +4,7 @@ import { NavigationContainer, RouteProp } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import { LoginScreen } from '../LoginScreen';
+import { DogNoseIdScreen } from '../LoginScreen';
 import CameraScreen from '../cameraScreen';
 import SensorPermissions from '../SensorPermissions';
 import SensorDataDisplay from '../SensorDataDisplay';
@@ -13,7 +13,7 @@ import GnssLoggerScreen from '../GnssLoggerScreen';
 
 // Define the parameters for each tab
 type RootTabParamList = {
-  Login: undefined;
+  DogId: undefined;
   Camera: undefined;
   Image: undefined;
   Permissions: undefined;
@@ -32,8 +32,8 @@ export default function BottomTabs() {
           tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
             let iconName = '';
 
-            if (route.name === 'Login') {
-              iconName = focused ? 'home' : 'home-outline';
+            if (route.name === 'DogId') {
+              iconName = focused ? 'paw' : 'paw-outline';
             } else if (route.name === 'Camera') {
               iconName = focused ? 'camera' : 'camera-outline';
             } else if (route.name === 'Image') {
@@ -52,7 +52,7 @@ export default function BottomTabs() {
           tabBarInactiveTintColor: 'gray',
         })}
       >
-        <Tab.Screen name="Login" component={LoginScreen} />
+        <Tab.Screen name="DogId" component={DogNoseIdScreen} options={{ tabBarLabel: 'Dog ID' }} />
         <Tab.Screen name="Camera" component={CameraScreen} />
         <Tab.Screen name="Image" component={ImgPickerScreen} />
         <Tab.Screen name="Permissions" component={SensorPermissions} />
