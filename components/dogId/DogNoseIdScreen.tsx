@@ -1,11 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+
+// Set to your host IP reachable from the device/emulator.
+// For the current network (enp5s0f3u1): 10.71.160.212
+const BACKEND_URL = 'http://10.71.160.212:8000';
 
 export function DogNoseIdScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [status, setStatus] = useState('Idle');
+  const [backendLogs, setBackendLogs] = useState<{ ts: number; source: string; message: string }[]>([]);
+  const [connection, setConnection] = useState<'unknown' | 'ok' | 'down'>('unknown');
+  const [lastDetection, setLastDetection] = useState<
+    | null
+    | {
+        capturable: boolean;
+        score?: number;
+        overlap?: number;
+        reason?: string;
+      }
+  >(null);
 
   const cameraRef = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -16,6 +32,26 @@ export function DogNoseIdScreen() {
       requestPermission();
     }
   }, [hasPermission, requestPermission]);
+
+  // Background connectivity check even when scanner is closed
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/health`);
+        if (!mounted) return;
+        setConnection(res.ok ? 'ok' : 'down');
+      } catch (e) {
+        if (mounted) setConnection('down');
+      }
+    };
+    run();
+    const id = setInterval(run, 6000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const handleStartScan = async () => {
     if (!hasPermission) {
@@ -32,6 +68,44 @@ export function DogNoseIdScreen() {
     }
 
     setScannerOpen(true);
+    setStatus('Scanner open');
+    pingBackend();
+  };
+
+  const pingBackend = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/health`);
+      if (res.ok) {
+        setConnection('ok');
+        return;
+      }
+    } catch (e) {
+      // ignore
+    }
+    setConnection('down');
+  };
+
+  const postClientLog = async (message: string, meta?: object) => {
+    try {
+      await fetch(`${BACKEND_URL}/client-log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'info', message, meta }),
+      });
+    } catch (err) {
+      console.warn('client-log failed', err);
+    }
+  };
+
+  const pollBackendLogs = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/logs`);
+      const json = await res.json();
+      const logs = Array.isArray(json.logs) ? json.logs : [];
+      setBackendLogs(logs.slice(-5));
+    } catch (err) {
+      // ignore
+    }
   };
 
   const handleCapture = async () => {
@@ -39,12 +113,46 @@ export function DogNoseIdScreen() {
 
     try {
       setIsCapturing(true);
+      setStatus('Capturing frame...');
       const shot = await cameraRef.current.takePhoto({ flash: 'off' });
-      setScannerOpen(false);
-      Alert.alert('Nose photo saved', `Captured at ${shot.path}`);
+
+      const form = new FormData();
+      form.append('file', {
+        uri: `file://${shot.path}`,
+        name: 'nose.jpg',
+        type: 'image/jpeg',
+      } as any);
+
+      setStatus('Sending to backend...');
+      const res = await fetch(`${BACKEND_URL}/detect-nose`, {
+        method: 'POST',
+        body: form,
+      });
+      const json = await res.json();
+      setLastDetection({
+        capturable: !!json.capturable,
+        score: json.score,
+        overlap: json.overlap,
+        reason: json.reason,
+      });
+
+      if (json.capturable) {
+        setStatus('Nose aligned, capturing');
+        setScannerOpen(false);
+        Alert.alert('Captured', 'Nose is inside the frame.');
+        postClientLog('capture_ok', { score: json.score, overlap: json.overlap });
+      } else {
+        const reason = json.reason || 'Nose not centered yet.';
+        setStatus(`Not ready: ${reason}`);
+        Alert.alert('Not ready', reason);
+        postClientLog('capture_not_ready', { reason, score: json.score, overlap: json.overlap });
+      }
     } catch (error) {
       console.error(error);
+      setStatus('Backend error');
+      setConnection('down');
       Alert.alert('Capture failed', 'Could not capture the nose.');
+      postClientLog('capture_error', { error: String(error) });
     } finally {
       setIsCapturing(false);
     }
@@ -52,7 +160,17 @@ export function DogNoseIdScreen() {
 
   const handleCloseScanner = () => {
     setScannerOpen(false);
+    setStatus('Idle');
   };
+
+  useEffect(() => {
+    if (!scannerOpen) return;
+    setStatus('Scanner open');
+    pollBackendLogs();
+    pingBackend();
+    const id = setInterval(pollBackendLogs, 4000);
+    return () => clearInterval(id);
+  }, [scannerOpen]);
 
   if (scannerOpen) {
     if (!hasPermission) {
@@ -127,6 +245,45 @@ export function DogNoseIdScreen() {
           <Ionicons name="paw" size={22} color="#ffffff" style={{ marginRight: 10 }} />
           <Text style={styles.buttonText}>Scan nose</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, { marginTop: 10, backgroundColor: '#1e293b' }]}
+          onPress={pingBackend}
+          activeOpacity={0.9}
+        >
+          <Ionicons name="radio" size={20} color="#ffffff" style={{ marginRight: 10 }} />
+          <Text style={styles.buttonText}>Test backend</Text>
+        </TouchableOpacity>
+
+        <View style={styles.statusPanel}>
+          <Text style={styles.statusLabel}>Backend</Text>
+          <Text style={styles.statusValue}>{BACKEND_URL}</Text>
+          <Text style={styles.statusLabel}>Status</Text>
+          <Text style={styles.statusValue}>{status}</Text>
+          <Text style={styles.statusLabel}>Connectivity</Text>
+          <Text style={styles.statusValue}>
+            {connection === 'ok' ? 'Online' : connection === 'down' ? 'Offline' : 'Checking...'}
+          </Text>
+          <Text style={styles.statusLabel}>Last detection</Text>
+          <Text style={styles.statusValue}>
+            {lastDetection
+              ? lastDetection.capturable
+                ? `Ready (score ${lastDetection.score ?? '-'}, overlap ${lastDetection.overlap ?? '-'})`
+                : `Not ready: ${lastDetection.reason ?? 'no reason'}`
+              : 'None yet'}
+          </Text>
+        </View>
+        <View style={styles.logPanel}>
+          <Text style={styles.logTitle}>Backend logs</Text>
+          <ScrollView style={styles.logList}>
+            {backendLogs.map((log, idx) => (
+              <Text key={`${log.ts}-${idx}`} style={styles.logLine}>
+                [{log.source}] {log.message}
+              </Text>
+            ))}
+            {backendLogs.length === 0 && <Text style={styles.logLine}>No logs yet</Text>}
+          </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -163,6 +320,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: { color: '#ffffff', fontWeight: '700', fontSize: 16 },
+  statusPanel: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#0b1220',
+  },
+  statusLabel: { color: '#94a3b8', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.4 },
+  statusValue: { color: '#e5e7eb', fontSize: 13, marginBottom: 6 },
+  logPanel: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#0b1220',
+    maxHeight: 140,
+  },
+  logTitle: { color: '#e5e7eb', fontWeight: '600', marginBottom: 6 },
+  logList: { maxHeight: 110 },
+  logLine: { color: '#cbd5e1', fontSize: 12, marginBottom: 2 },
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000',
@@ -226,6 +401,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 18,
     padding: 8,
+    zIndex: 4,
   },
   shutterButton: {
     position: 'absolute',
@@ -239,6 +415,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 4,
     borderColor: 'rgba(0,0,0,0.25)',
+    zIndex: 4,
   },
   shutterInner: {
     width: 62,
