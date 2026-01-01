@@ -4,7 +4,7 @@ import { NavigationContainer, RouteProp } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import { DogNoseIdScreen } from '../LoginScreen';
+import { DogNoseIdScreen } from '../dogId/DogNoseIdScreen';
 import CameraScreen from '../cameraScreen';
 import SensorPermissions from '../SensorPermissions';
 import SensorDataDisplay from '../SensorDataDisplay';
