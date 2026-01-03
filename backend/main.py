@@ -162,7 +162,33 @@ def health() -> Dict[str, str]:
 @app.post("/detect-nose")
 def detect_nose(file: UploadFile = File(...)) -> Dict[str, object]:
     image = _load_image(file)
-    outputs = _run_inference(image)
+
+    if not os.path.exists(MODEL_PATH):
+        reason = f"TFLite model not found at {MODEL_PATH}"
+        _log("backend", "model_missing", {"reason": reason})
+        return {
+            "capturable": False,
+            "score": 0.0,
+            "reason": reason,
+            "frame": FRAME_BOUNDS,
+            "min_score": MIN_SCORE,
+            "min_overlap": MIN_OVERLAP,
+        }
+
+    try:
+        outputs = _run_inference(image)
+    except RuntimeError as exc:
+        reason = str(exc)
+        _log("backend", "model_missing", {"reason": reason})
+        return {
+            "capturable": False,
+            "score": 0.0,
+            "reason": reason,
+            "frame": FRAME_BOUNDS,
+            "min_score": MIN_SCORE,
+            "min_overlap": MIN_OVERLAP,
+        }
+
     box, score = _extract_detection(outputs)
 
     if box is None:
