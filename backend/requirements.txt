@@ -5,3 +5,4 @@ numpy==2.1.3
 tflite-runtime==2.14.0
 # If tflite-runtime is unavailable for your platform, use tensorflow==2.17.0 instead (heavier).
 python-multipart==0.0.9
+opencv-python-headless==4.10.0.84

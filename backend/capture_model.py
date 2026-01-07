@@ -30,6 +30,7 @@ Options:
 
 import argparse
 import json
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -65,7 +66,7 @@ def compute_brenner_gradient(gray: np.ndarray) -> float:
     brenner = np.sum((gray[:, 2:].astype(float) - gray[:, :-2].astype(float))**2)
     return float(brenner / (h * w))
 
-
+o
 def compute_local_contrast(gray: np.ndarray) -> float:
     """Local contrast using standard deviation."""
     return float(np.std(gray))
@@ -457,6 +458,11 @@ def main() -> None:
         default=2.5,
         help="Seconds between auto-captures (default 2.5)",
     )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run without GUI display (for headless servers)",
+    )
     args = parser.parse_args()
     
     # Initialize camera
@@ -469,6 +475,11 @@ def main() -> None:
     capture.set(cv2.CAP_PROP_AUTOFOCUS, 1)
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    
+    # Auto-detect headless mode if DISPLAY is not set
+    headless = args.headless or not os.environ.get("DISPLAY")
+    if headless:
+        print("🖥️  Headless mode: Display disabled")
     
     # Setup output directory
     output_dir = Path(__file__).resolve().parent / "dataset"
@@ -554,15 +565,17 @@ def main() -> None:
                   f"Tenengrad: {quality['tenengrad']:.1f}")
             
             # Flash effect
-            display[:] = (255, 255, 255)
-            cv2.imshow("Dog Nose Dataset Collection", display)
-            cv2.waitKey(100)
+            if not headless:
+                display[:] = (255, 255, 255)
+                cv2.imshow("Dog Nose Dataset Collection", display)
+                cv2.waitKey(100)
         
         # Display
-        cv2.imshow("Dog Nose Dataset Collection", display)
+        if not headless:
+            cv2.imshow("Dog Nose Dataset Collection", display)
         
         # Keyboard controls
-        key = cv2.waitKey(1) & 0xFF
+        key = cv2.waitKey(1) & 0xFF if not headless else -1
         
         if key == ord("q"):
             break
