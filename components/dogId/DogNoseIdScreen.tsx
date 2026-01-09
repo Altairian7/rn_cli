@@ -7,21 +7,31 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 // For the current network (enp5s0f3u1): 10.71.160.212
 const BACKEND_URL = 'http://10.71.160.212:8000';
 
+type CaptureResult = {
+  saved: boolean;
+  capturable: boolean;
+  score?: number;
+  overlap?: number;
+  quality?: {
+    passed: boolean;
+    laplacian: number;
+    tenengrad: number;
+    brenner: number;
+    contrast: number;
+    brightness: number;
+    checks: Record<string, boolean>;
+  };
+  saved_path?: string | null;
+  reason?: string | null;
+};
+
 export function DogNoseIdScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [status, setStatus] = useState('Idle');
   const [backendLogs, setBackendLogs] = useState<{ ts: number; source: string; message: string }[]>([]);
   const [connection, setConnection] = useState<'unknown' | 'ok' | 'down'>('unknown');
-  const [lastDetection, setLastDetection] = useState<
-    | null
-    | {
-        capturable: boolean;
-        score?: number;
-        overlap?: number;
-        reason?: string;
-      }
-  >(null);
+  const [lastCapture, setLastCapture] = useState<CaptureResult | null>(null);
 
   const cameraRef = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -124,28 +134,54 @@ export function DogNoseIdScreen() {
       } as any);
 
       setStatus('Sending to backend...');
-      const res = await fetch(`${BACKEND_URL}/detect-nose`, {
+      const res = await fetch(`${BACKEND_URL}/dataset/capture`, {
         method: 'POST',
         body: form,
       });
-      const json = await res.json();
-      setLastDetection({
-        capturable: !!json.capturable,
-        score: json.score,
-        overlap: json.overlap,
-        reason: json.reason,
-      });
+      const json: CaptureResult & { detail?: string } = await res.json();
 
-      if (json.capturable) {
-        setStatus('Nose aligned, capturing');
-        setScannerOpen(false);
-        Alert.alert('Captured', 'Nose is inside the frame.');
-        postClientLog('capture_ok', { score: json.score, overlap: json.overlap });
-      } else {
-        const reason = json.reason || 'Nose not centered yet.';
+      if (!res.ok) {
+        const reason = json.detail || json.reason || 'Backend rejected the capture.';
+        setLastCapture({
+          saved: false,
+          capturable: json.capturable ?? false,
+          score: json.score,
+          overlap: json.overlap,
+          quality: json.quality,
+          reason,
+        });
         setStatus(`Not ready: ${reason}`);
         Alert.alert('Not ready', reason);
-        postClientLog('capture_not_ready', { reason, score: json.score, overlap: json.overlap });
+        postClientLog('dataset_capture_rejected', {
+          reason,
+          score: json.score,
+          overlap: json.overlap,
+          quality: json.quality,
+        });
+        return;
+      }
+
+      setLastCapture(json);
+
+      if (json.saved) {
+        setStatus('Saved to dataset');
+        setScannerOpen(false);
+        Alert.alert('Captured', `Saved sample${json.saved_path ? ` (${json.saved_path})` : ''}.`);
+        postClientLog('dataset_capture_saved', {
+          score: json.score,
+          overlap: json.overlap,
+          saved_path: json.saved_path,
+        });
+      } else {
+        const reason = json.reason || 'Nose not centered or quality too low yet.';
+        setStatus(`Not ready: ${reason}`);
+        Alert.alert('Not ready', reason);
+        postClientLog('dataset_capture_rejected', {
+          reason,
+          score: json.score,
+          overlap: json.overlap,
+          quality: json.quality,
+        });
       }
     } catch (error) {
       console.error(error);
@@ -264,14 +300,20 @@ export function DogNoseIdScreen() {
           <Text style={styles.statusValue}>
             {connection === 'ok' ? 'Online' : connection === 'down' ? 'Offline' : 'Checking...'}
           </Text>
-          <Text style={styles.statusLabel}>Last detection</Text>
+          <Text style={styles.statusLabel}>Last capture</Text>
           <Text style={styles.statusValue}>
-            {lastDetection
-              ? lastDetection.capturable
-                ? `Ready (score ${lastDetection.score ?? '-'}, overlap ${lastDetection.overlap ?? '-'})`
-                : `Not ready: ${lastDetection.reason ?? 'no reason'}`
+            {lastCapture
+              ? lastCapture.saved
+                ? `Saved (score ${lastCapture.score ?? '-'}, overlap ${lastCapture.overlap ?? '-'})`
+                : `Rejected: ${lastCapture.reason ?? 'not aligned or blurry'}`
               : 'None yet'}
           </Text>
+          {lastCapture?.quality && (
+            <Text style={styles.statusValue}>
+              Quality {lastCapture.quality.passed ? 'ok' : 'needs work'} | Lap {lastCapture.quality.laplacian.toFixed(1)} | Ten {lastCapture.quality.tenengrad.toFixed(1)} | C {lastCapture.quality.contrast.toFixed(1)} | B {lastCapture.quality.brightness.toFixed(1)}
+            </Text>
+          )}
+          {lastCapture?.saved_path && <Text style={styles.statusValue}>Path: {lastCapture.saved_path}</Text>}
         </View>
         <View style={styles.logPanel}>
           <Text style={styles.logTitle}>Backend logs</Text>
