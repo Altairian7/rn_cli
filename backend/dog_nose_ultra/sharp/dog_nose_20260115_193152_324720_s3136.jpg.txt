@@ -1,0 +1,6 @@
+Timestamp: 20260115_193152_324720
+Sharpness: 3136.41
+Center Sharpness: 3422.73
+Edge Density: 0.0801
+Brightness: 111.95
+Nostrils Detected: 3

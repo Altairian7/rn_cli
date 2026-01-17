@@ -1,0 +1,6 @@
+Timestamp: 20260115_183727_385918
+Sharpness: 1360.61
+Center Sharpness: 682.73
+Edge Density: 0.1180
+Brightness: 114.53
+Quality Score: 889.84

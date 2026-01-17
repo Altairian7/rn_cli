@@ -66,7 +66,7 @@ def compute_brenner_gradient(gray: np.ndarray) -> float:
     brenner = np.sum((gray[:, 2:].astype(float) - gray[:, :-2].astype(float))**2)
     return float(brenner / (h * w))
 
-o
+
 def compute_local_contrast(gray: np.ndarray) -> float:
     """Local contrast using standard deviation."""
     return float(np.std(gray))
