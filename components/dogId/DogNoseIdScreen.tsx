@@ -83,7 +83,10 @@ const ResultModal: React.FC<ResultModalProps> = ({ type, data, onClose, mode }) 
         {isSuccess && !isRegisterMode && data.dogId && (
           <View style={styles.resultContent}>
             <ResultInfoRow label="Identified Dog" value={data.dogId} />
-            {data.accuracy && (
+            {data.dogName && (
+              <ResultInfoRow label="Dog Name" value={data.dogName} />
+            )}
+            {data.accuracy && data.accuracy !== 'N/A' && (
               <ResultInfoRow label="Confidence" value={`${data.accuracy}%`} />
             )}
             <ResultInfoRow label="Time" value={data.timestamp} />
@@ -373,14 +376,27 @@ export function DogNoseIdScreen() {
       setScannerOpen(false);
       setCurrentMode(null);
       
-      // Extract accuracy/confidence from response if available
-      const accuracy = json.score || json.confidence || json.accuracy;
+      // Extract details from response - handle backend response structure
       const matchedDogId = json.dog_id || json.matched_id || 'Unknown';
+      const matchedDogName = json.dog_name || json.name || '';
+      
+      // Extract confidence/similarity - try multiple field names
+      let confidenceValue = 'N/A';
+      if (json.similarity !== undefined) {
+        confidenceValue = (json.similarity * 100).toFixed(2);
+      } else if (json.score !== undefined) {
+        confidenceValue = (json.score * 100).toFixed(2);
+      } else if (json.confidence !== undefined) {
+        confidenceValue = (json.confidence * 100).toFixed(2);
+      } else if (json.accuracy !== undefined) {
+        confidenceValue = (json.accuracy * 100).toFixed(2);
+      }
       
       setResultData({
         dogId: matchedDogId,
-        accuracy: accuracy ? (accuracy * 100).toFixed(2) : 'N/A',
-        confidence: accuracy ? (accuracy * 100).toFixed(2) : 'N/A',
+        dogName: matchedDogName,
+        accuracy: confidenceValue,
+        similarity: confidenceValue,
         timestamp: new Date().toLocaleString(),
         ...json
       });
@@ -390,7 +406,8 @@ export function DogNoseIdScreen() {
       
       postClientLog('identify_success', {
         matched_id: matchedDogId,
-        accuracy,
+        dog_name: matchedDogName,
+        similarity: confidenceValue,
         ...json
       });
     } catch (error) {
@@ -490,6 +507,21 @@ export function DogNoseIdScreen() {
               <Text style={styles.processingText}>Processing...</Text>
             </View>
           </View>
+        </Modal>
+
+        {/* Result Modal - Show on Camera View */}
+        <Modal transparent visible={showResultModal} animationType="slide">
+          <ResultModal
+            type={resultType}
+            data={resultData}
+            onClose={() => {
+              setShowResultModal(false);
+              setResultData(null);
+              setResultType(null);
+              setScannerOpen(false);
+            }}
+            mode={currentMode}
+          />
         </Modal>
       </View>
     );
